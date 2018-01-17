@@ -57,6 +57,17 @@ public class adafruitGyroDrive extends LinearOpMode {
     private DcMotor LeftFrontMotor;
     private DcMotor RightFrontMotor;
 
+    //PID variables
+    private double pidLastTime = 0;
+    private double lastError = 0;
+    private double integral = 0;
+    private double PIDError;
+    private boolean acceptable = false();
+    private double kp = 1; double ki = 0; double kd = 0;
+    private double dt;
+    private double dError;
+    private boolean onTarget = true;
+
     /* Declare OpMode members. */
     BNO055IMU gyro;
     Orientation angles;
@@ -77,7 +88,6 @@ public class adafruitGyroDrive extends LinearOpMode {
     static final double     HEADING_THRESHOLD       = 1 ;      // As tight as we can make it with an integer gyro
     static final double     P_TURN_COEFF            = 0.1;     // Larger is more responsive, but also less stable
     static final double     P_DRIVE_COEFF           = 0.15;     // Larger is more responsive, but also less stable
-
 
     @Override
     public void runOpMode() {
@@ -114,7 +124,7 @@ public class adafruitGyroDrive extends LinearOpMode {
         // Note: Reverse movement is obtained by setting a negative distance (not speed)
         // Put a hold after each turn
         //gyroDrive(DRIVE_SPEED, 10.0, 0.0);
-        gyroTurn( TURN_SPEED, -90.0);
+        pidTurn(-90);
         drive(0,0,0);
         //gyroHold( TURN_SPEED, -90.0, 2);
         //gyroDrive(DRIVE_SPEED, 48.0, 0.0);
@@ -142,6 +152,32 @@ public class adafruitGyroDrive extends LinearOpMode {
      *                   0 = fwd. +ve is CCW from fwd. -ve is CW from forward.
      *                   If a relative angle is required, add/subtract from current heading.
      */
+
+    //Turning with PID
+    //kp, ki, and kd all need to be tuned
+    public void pidTurn(double angle)
+    {
+        double error = getError(angle);
+        while(Math.abs(error) >= HEADING_THRESHOLD)
+        {
+            error = getError(angle);
+
+            dt = System.currentTimeMillis() - pidLastTime;
+            dError = error - lastError;
+            pidLastTime = System.currentTimeMillis();
+
+            integral += error * dt;
+
+            double u = kp * error + ki * integral + kd * (dError / dt);
+            lastError = error;
+
+            drive(0,0,u);
+
+            telemetry.update();
+        }
+
+    }
+
     public void gyroDrive ( double speed,
                             double distance,
                             double angle) {
@@ -250,6 +286,7 @@ public class adafruitGyroDrive extends LinearOpMode {
             telemetry.update();
         }
     }
+
 
     /**
      *  Method to obtain & hold a heading for a finite amount of time
